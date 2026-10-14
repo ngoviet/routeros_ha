@@ -57,7 +57,9 @@ không đụng gì tới connection.
 ## Công cụ (cho người phát triển)
 
 - `python tools/deploy.py` — chép integration lên HA qua SSH (cần `.env`, xem `.env.example`).
-- `python tools/make_brand.py` — sinh `brand/` (icon/logo đúng quy cách home-assistant/brands).
+- `python tools/make_brand.py` — sinh `brand/icon.png` + `icon@2x.png` đúng quy cách
+  home-assistant/brands (HA 2026.3+ đọc thẳng thư mục `brand/`, Marketplace lấy từ bản release).
+  Icon là thiết kế gốc, cố ý không dùng logo MikroTik.
 - `python tools/migrate_entity_ids.py [--apply]` — chuyển từ HACS `mikrotik_router` (tomaae):
   đổi entity_id mới về id cũ để dashboard và lịch sử giữ nguyên.
 - Test: `pip install -r requirements_test.txt && pytest`.

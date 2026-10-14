@@ -3,12 +3,14 @@
 Quy cách (README của home-assistant/brands, mục custom_integrations/<domain>/):
 - PNG, nén lossless, viền cắt sát (không chừa khoảng trống thừa), nền ngoài ô trong suốt.
 - icon.png 256×256, icon@2x.png 512×512 (tỉ lệ 1:1).
-- logo.png cạnh ngắn 128–256 px, logo@2x.png cạnh ngắn 256–512 px — ở đây dùng lại icon.
+- Logo trùng icon (ảnh vuông) → CHỈ để icon; HA tự dùng icon thay logo khi thiếu logo.
 
 Ảnh vẽ bằng stdlib (zlib + struct), không cần Pillow; khử răng cưa bằng siêu lấy mẫu
-SS×SS điểm trên mỗi pixel. Thiết kế gốc (KHÔNG dùng logo MikroTik — thương hiệu của họ):
+SS×SS điểm trên mỗi pixel. Thiết kế gốc, KHÔNG dùng logo MikroTik: logo hãng khác là lý do
+mẫu để HA đưa integration vào marketplace-icons-blocklist (README home-assistant/brands).
 ô vuông bo góc gradient xanh đậm → đỏ + router trắng (thân, 2 ăng-ten, 3 đèn).
-Cùng thư mục brand/ này HA 2026.x cũng tự phục vụ icon cho custom integration.
+Từ HA 2026.3 custom integration không đăng ký vào repo brands nữa: HA đọc thẳng thư mục
+brand/ này, Marketplace lấy ảnh từ bản release mới nhất của repo.
 
 Dùng: python tools/make_brand.py   (sau đó restart HA mới thấy icon mới)
 """
@@ -115,8 +117,6 @@ if __name__ == "__main__":
     for name, size in (
         ("icon.png", 256),
         ("icon@2x.png", 512),
-        ("logo.png", 256),
-        ("logo@2x.png", 512),
     ):
         write_png(OUT / name, size)
     print("Lưu ý: HA chỉ hiển thị brand mới SAU KHI RESTART.")
