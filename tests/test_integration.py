@@ -83,6 +83,8 @@ def test_parse_rules_duplicate_comment():
         ("  router.lan ", "router.lan"),
         ("http://192.168.88.1/", "192.168.88.1"),
         ("https://192.168.88.1:8443/webfig/", "192.168.88.1"),
+        ("[fe80::1]", "[fe80::1]"),
+        ("http://[fe80::1]:8080/", "[fe80::1]"),
     ],
 )
 def test_normalize_host(value, host):
