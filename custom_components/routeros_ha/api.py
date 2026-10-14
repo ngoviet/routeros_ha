@@ -50,6 +50,11 @@ class RouterOSApi:
         self._session = session
         scheme = "https" if use_ssl else "http"
         self.host = host
+        # WebFig chạy trên cùng service www/www-ssl với REST → dùng làm configuration_url.
+        default_port = 443 if use_ssl else 80
+        self.web_url = f"{scheme}://{host}" + (
+            "" if port == default_port else f":{port}"
+        )
         self._base = f"{scheme}://{host}:{port}/rest/"
         self._auth = aiohttp.BasicAuth(username, password)
         self._ssl: bool | None = None if (not use_ssl or verify_ssl) else False

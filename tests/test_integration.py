@@ -7,13 +7,15 @@ from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.routeros_ha.config_flow import normalize_host
 from custom_components.routeros_ha.const import DOMAIN
 from custom_components.routeros_ha.coordinator import parse_rules, parse_uptime
 
-from .conftest import FILTERS, REST, SERIAL, USER_INPUT, mock_router
+from .conftest import FILTERS, HOST, REST, SERIAL, USER_INPUT, mock_router
 
 
 def _entry() -> MockConfigEntry:
@@ -74,7 +76,31 @@ def test_parse_rules_duplicate_comment():
     assert set(parse_rules(rows, "Block IP - ")) == {"tv", "tv_2"}
 
 
+@pytest.mark.parametrize(
+    "value,host",
+    [
+        ("192.168.88.1", "192.168.88.1"),
+        ("  router.lan ", "router.lan"),
+        ("http://192.168.88.1/", "192.168.88.1"),
+        ("https://192.168.88.1:8443/webfig/", "192.168.88.1"),
+    ],
+)
+def test_normalize_host(value, host):
+    assert normalize_host(value) == host
+
+
 # --- config flow ----------------------------------------------------------
+
+
+async def test_config_flow_strips_url_from_host(hass: HomeAssistant, router):
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**USER_INPUT, "host": f"http://{HOST}/"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["host"] == HOST
 
 
 async def test_config_flow_creates_entry(hass: HomeAssistant, router):
@@ -166,6 +192,11 @@ async def test_setup_creates_entities(hass: HomeAssistant, router):
     assert upd.attributes["latest_version"] == "7.24.5"
     fw = hass.states.get(_entity_id(hass, "update", "firmware_update"))
     assert fw.state == "off"
+
+    device_id = er.async_get(hass).async_get(upd.entity_id).device_id
+    device = dr.async_get(hass).async_get(device_id)
+    assert device.configuration_url == f"http://{HOST}"
+    assert device.model == "CCR2004-16G-2S+"
 
 
 async def test_block_patches_rule_and_kills_connections(hass: HomeAssistant, router):

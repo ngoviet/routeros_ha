@@ -15,6 +15,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
+from yarl import URL
 
 from . import build_api
 from .api import RouterOSApiError, RouterOSAuthError
@@ -34,6 +35,19 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def normalize_host(value: str) -> str:
+    """Người dùng hay dán cả URL WebFig ("http://192.168.88.1/") → chỉ giữ host.
+
+    Cổng trong URL bị bỏ: cổng có ô nhập riêng.
+    """
+    value = value.strip()
+    try:
+        host = URL(value if "://" in value else f"http://{value}").host
+    except ValueError:
+        return value
+    return host or value
 
 
 async def _validate(
@@ -82,7 +96,7 @@ class RouterOSConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            user_input[CONF_HOST] = user_input[CONF_HOST].strip()
+            user_input[CONF_HOST] = normalize_host(user_input[CONF_HOST])
             error, info = await _validate(self.hass, user_input)
             if error is None:
                 await self.async_set_unique_id(
