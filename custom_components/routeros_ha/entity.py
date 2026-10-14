@@ -25,5 +25,5 @@ class RouterOSEntity(CoordinatorEntity[RouterOSCoordinator]):
             serial_number=board.get("serial-number"),
             sw_version=res.get("version"),
             hw_version=board.get("revision"),
-            configuration_url=f"http://{coordinator.api.host}",
+            configuration_url=coordinator.api.web_url,
         )
