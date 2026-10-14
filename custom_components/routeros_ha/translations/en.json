@@ -1,0 +1,80 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "RouterOS (MikroTik)",
+        "description": "Connect to the RouterOS REST API (RouterOS 7.1+, service `www` or `www-ssl`). The user needs the `read`, `write` and `rest-api` policies.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate",
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate RouterOS",
+        "description": "The credentials for {host} are no longer accepted.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid username/password, or the user lacks the rest-api policy",
+      "cannot_connect": "Cannot connect to the router REST API",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "Router already configured",
+      "reauth_successful": "Re-authentication successful"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "RouterOS options",
+        "description": "Every firewall filter rule whose comment starts with the block prefix becomes a switch: on = rule enabled = device blocked.",
+        "data": {
+          "scan_interval": "Update interval (seconds)",
+          "block_prefix": "Block rule comment prefix",
+          "kill_connections": "Drop the device's open connections when blocking"
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "block": {
+        "name": "Block {name}"
+      }
+    },
+    "sensor": {
+      "cpu_load": {
+        "name": "CPU load"
+      },
+      "memory_usage": {
+        "name": "Memory usage"
+      },
+      "hdd_usage": {
+        "name": "Storage usage"
+      },
+      "uptime": {
+        "name": "Uptime"
+      },
+      "dhcp_clients": {
+        "name": "DHCP clients"
+      }
+    },
+    "update": {
+      "routeros": {
+        "name": "RouterOS"
+      },
+      "firmware": {
+        "name": "RouterBOARD firmware"
+      }
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "RouterOS (MikroTik)",
+        "description": "Kết nối REST API của RouterOS (RouterOS 7.1+, service `www` hoặc `www-ssl`). User cần các policy `read`, `write` và `rest-api`.",
+        "data": {
+          "host": "Địa chỉ router",
+          "port": "Cổng",
+          "ssl": "Dùng HTTPS",
+          "verify_ssl": "Kiểm tra chứng chỉ SSL",
+          "username": "Tên đăng nhập",
+          "password": "Mật khẩu"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Đăng nhập lại RouterOS",
+        "description": "Router {host} không còn chấp nhận thông tin đăng nhập.",
+        "data": {
+          "username": "Tên đăng nhập",
+          "password": "Mật khẩu"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Sai tên đăng nhập/mật khẩu, hoặc user thiếu policy rest-api",
+      "cannot_connect": "Không kết nối được REST API của router",
+      "unknown": "Lỗi không xác định"
+    },
+    "abort": {
+      "already_configured": "Router này đã được thêm",
+      "reauth_successful": "Đăng nhập lại thành công"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tuỳ chọn RouterOS",
+        "description": "Mỗi rule firewall filter có comment bắt đầu bằng tiền tố sẽ thành một công tắc: bật = rule bật = thiết bị bị chặn.",
+        "data": {
+          "scan_interval": "Chu kỳ cập nhật (giây)",
+          "block_prefix": "Tiền tố comment của rule chặn",
+          "kill_connections": "Cắt luôn các kết nối đang mở khi chặn"
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "block": {
+        "name": "Chặn {name}"
+      }
+    },
+    "sensor": {
+      "cpu_load": {
+        "name": "Tải CPU"
+      },
+      "memory_usage": {
+        "name": "RAM đã dùng"
+      },
+      "hdd_usage": {
+        "name": "Bộ nhớ lưu trữ đã dùng"
+      },
+      "uptime": {
+        "name": "Thời điểm khởi động"
+      },
+      "dhcp_clients": {
+        "name": "Thiết bị DHCP"
+      }
+    },
+    "update": {
+      "routeros": {
+        "name": "RouterOS"
+      },
+      "firmware": {
+        "name": "Firmware RouterBOARD"
+      }
+    }
+  }
+}

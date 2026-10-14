@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.env
+.claude/
+CLAUDE.md
+
+# Home Assistant phục vụ brand image từ custom_components/<domain>/brand/
+!custom_components/routeros_ha/brand/*.png
+
+# --- nền D:\code (System_info/templates/dcode/gitignore-base) ---
+.env.*
+!.env.example
+logs/
+tmp/
+*.log
+*.log.err
+*.bak*
+*.old
+node_modules/
+.repowise/
+.codegraph/
+.lavish/
+Thumbs.db
+desktop.ini

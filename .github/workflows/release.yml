@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  # Phát hành từ tab Actions (cả trên điện thoại) mà không cần push tag:
+  # tag `v<version trong manifest>` được tạo trên đúng commit đang chạy.
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # HACS picks up the version from manifest.json; a tag that disagrees with it
+      # silently offers users the wrong version, so fail the release instead.
+      - name: Resolve and validate the version
+        id: version
+        run: |
+          MANIFEST_VER=$(python -c "import json; print(json.load(open('custom_components/routeros_ha/manifest.json'))['version'])")
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            TAG=${GITHUB_REF#refs/tags/v}
+            if [ "$TAG" != "$MANIFEST_VER" ]; then
+              echo "Tag version v$TAG does not match manifest version $MANIFEST_VER"
+              exit 1
+            fi
+          else
+            # Chạy tay: không được đè một bản đã phát hành.
+            if git ls-remote --exit-code --tags origin "refs/tags/v$MANIFEST_VER" >/dev/null; then
+              echo "Tag v$MANIFEST_VER already exists — bump manifest.json first"
+              exit 1
+            fi
+          fi
+          echo "tag=v$MANIFEST_VER" >> "$GITHUB_OUTPUT"
+          echo "Version $MANIFEST_VER validated"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.version.outputs.tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true

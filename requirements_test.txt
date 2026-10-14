@@ -1,0 +1,5 @@
+# Test dependency: pinned to the Home Assistant release this integration targets.
+# `pytest-homeassistant-custom-component` pins `homeassistant` exactly (0.13.367 →
+# 2026.9.4), so bumping this one line is how the suite moves to a new HA version.
+# `pytest` itself is left to PHACC, which pins the version it is built against.
+pytest-homeassistant-custom-component==0.13.367
