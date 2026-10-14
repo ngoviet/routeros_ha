@@ -40,14 +40,16 @@ _LOGGER = logging.getLogger(__name__)
 def normalize_host(value: str) -> str:
     """Người dùng hay dán cả URL WebFig ("http://192.168.88.1/") → chỉ giữ host.
 
-    Cổng trong URL bị bỏ: cổng có ô nhập riêng.
+    Cổng trong URL bị bỏ: cổng có ô nhập riêng. IPv6 giữ ngoặc vuông để còn ghép URL.
     """
     value = value.strip()
     try:
         host = URL(value if "://" in value else f"http://{value}").host
     except ValueError:
         return value
-    return host or value
+    if not host:
+        return value
+    return f"[{host}]" if ":" in host else host
 
 
 async def _validate(
