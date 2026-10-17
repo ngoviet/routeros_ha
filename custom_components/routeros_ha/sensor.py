@@ -1,4 +1,4 @@
-"""Sensor: CPU / RAM / ổ nhớ / uptime / số thiết bị DHCP + sensor động từ /system/health."""
+"""Sensor: CPU / RAM / ổ nhớ / uptime / số thiết bị DHCP + lưu lượng RX/TX từng cổng + sensor động từ /system/health."""
 
 from __future__ import annotations
 
