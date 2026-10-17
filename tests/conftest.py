@@ -132,6 +132,41 @@ ETHERNET_MONITOR = [
     {"name": "sfp-sfpplus1", "status": "link-ok", "rate": "10Gbps"},
 ]
 
+LEASES = [
+    {
+        "mac-address": "AA:00:00:00:00:01",
+        "address": "192.168.88.12",
+        "comment": "NAS",
+        "host-name": "nas",
+        "status": "bound",
+    },
+    {
+        "mac-address": "AA:00:00:00:00:02",
+        "address": "192.168.88.50",
+        "host-name": "vm-1",
+        "status": "bound",
+    },
+    {
+        "mac-address": "AA:00:00:00:00:03",
+        "address": "192.168.88.51",
+        "host-name": "vm-2",
+        "status": "waiting",
+    },
+]
+# GET /interface/bridge/host?local=false: MAC học được trên từng cổng
+BRIDGE_HOSTS = [
+    {"mac-address": "aa:00:00:00:00:01", "on-interface": "ether1"},
+    {"mac-address": "AA:00:00:00:00:02", "on-interface": "ether1"},
+]
+# GET /ip/neighbor: LLDP/MNDP — `interface` = "cổng,bridge"
+NEIGHBORS = [
+    {
+        "interface": "sfp-sfpplus1,bridge",
+        "identity": "CRS326",
+        "address": "192.168.88.2",
+    }
+]
+
 
 DEFAULT_ROUTES: dict[tuple[str, str], dict] = {
     ("get", "system/identity"): {"json": {"name": "CCR2004"}},
@@ -141,11 +176,13 @@ DEFAULT_ROUTES: dict[tuple[str, str], dict] = {
     ("get", "system/package/update"): {"json": PACKAGE_UPDATE},
     ("post", "system/package/update/check-for-updates"): {"json": []},
     ("get", "ip/firewall/filter"): {"json": FILTERS},
-    ("get", "ip/dhcp-server/lease"): {"json": [{".id": "*1"}, {".id": "*2"}]},
+    ("get", "ip/dhcp-server/lease"): {"json": LEASES},
     ("get", "ip/firewall/connection"): {"json": CONNECTIONS},
     ("get", "ip/dhcp-server"): {"json": [{".id": "*1"}]},
     ("get", "interface"): {"json": INTERFACES},
     ("post", "interface/ethernet/monitor"): {"json": ETHERNET_MONITOR},
+    ("get", "interface/bridge/host"): {"json": BRIDGE_HOSTS},
+    ("get", "ip/neighbor"): {"json": NEIGHBORS},
 }
 
 

@@ -118,4 +118,10 @@ class PortLink(RouterOSEntity, BinarySensorEntity):
             "disabled": port.disabled,
             "link_downs": port.link_downs,
             "mac_address": port.mac_address,
+            # Thiết bị đang cắm: LLDP neighbor hoặc DHCP lease (comment) — card sơ đồ mạng
+            # dùng làm tên cổng.
+            "device": port.device.name if port.device else None,
+            "device_ip": port.device.ip if port.device else None,
+            "device_mac": port.device.mac if port.device else None,
+            "device_source": port.device.source if port.device else None,
         }

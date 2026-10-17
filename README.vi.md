@@ -174,7 +174,7 @@ Mọi entity thuộc một thiết bị mang tên identity của router (`/syste
 | Bộ nhớ lưu trữ đã dùng | sensor (%) | `/system/resource` | Diagnostic |
 | Thời điểm khởi động | sensor (timestamp) | `/system/resource` | Lúc router khởi động |
 | Thiết bị DHCP | sensor | `/ip/dhcp-server/lease` | Số lease đang `bound`. Không tạo trên máy không chạy DHCP server (vd switch CRS) |
-| **&lt;cổng&gt; link** | binary sensor (connectivity) | `/interface` `running` | Một cái / cổng ethernet, SFP. Thuộc tính: `port`, `default_name`, `comment`, `rate` (`1Gbps`), `speed_mbps`, `disabled`, `link_downs`, `mac_address` |
+| **&lt;cổng&gt; link** | binary sensor (connectivity) | `/interface` `running` | Một cái / cổng ethernet, SFP. Thuộc tính: `port`, `default_name`, `comment`, `rate` (`1Gbps`), `speed_mbps`, `disabled`, `link_downs`, `mac_address`, và thiết bị đang cắm: `device`, `device_ip`, `device_mac`, `device_source` |
 | **&lt;cổng&gt; RX** / **TX** | sensor (data rate) | `/interface` `rx-byte` / `tx-byte` | Tốc độ trung bình giữa 2 lần đọc, theo chiều của router: RX = nhận vào ở cổng, TX = gửi ra. Thuộc tính: `port`, `direction`. Lần đọc đầu chưa có số |
 | CPU temperature, Fan1 speed, … | sensor | `/system/health` | Tự tạo theo những gì router báo (°C, RPM, V, W, A) |
 | Fan, PSU1, PSU2, … | binary sensor (problem) | `/system/health` `*-state` | Bật khi giá trị khác `ok` (vd router 2 nguồn chỉ cắm 1 dây → PSU2 = sự cố). Diagnostic |
@@ -191,6 +191,13 @@ Entity cổng gắn theo `default-name` nên đổi tên cổng trên router v�
 `port` theo tên hiện tại. Tốc độ link đọc từ `/interface/ethernet/monitor`, chỉ khi có cổng
 lên/xuống và mỗi 5 phút. Sensor RX/TX đổi mỗi lần đọc: nhiều cổng thì nên loại các cổng không
 cần lịch sử khỏi recorder.
+
+**Thiết bị trên cổng** (thuộc tính `device`): ưu tiên neighbor LLDP/MNDP/CDP trên cổng đó
+(`/ip/neighbor`, vd AP hay switch khác); không có thì tra các MAC học được trên cổng
+(`/interface/bridge/host`) trong DHCP lease: đúng một MAC có **comment** trong lease thì lấy
+tên đó (máy có VM phía sau vẫn ra đúng máy), cổng chỉ có một MAC thì dùng host-name của lease.
+Switch không chạy DHCP server dùng lease của các router khác đã thêm vào integration. Thiết bị
+im lặng, rời bảng MAC thì tên vẫn giữ thêm một giờ.
 
 ## Cơ chế chặn
 

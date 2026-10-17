@@ -177,7 +177,7 @@ All entities belong to one device named after the router identity (`/system/iden
 | Storage usage | sensor (%) | `/system/resource` | Diagnostic |
 | Uptime | sensor (timestamp) | `/system/resource` | Time the router booted |
 | DHCP clients | sensor | `/ip/dhcp-server/lease` | Number of leases with status `bound`. Not created on a device without a DHCP server (e.g. a CRS switch) |
-| **&lt;port&gt; link** | binary sensor (connectivity) | `/interface` `running` | One per ethernet / SFP port. Attributes: `port`, `default_name`, `comment`, `rate` (`1Gbps`), `speed_mbps`, `disabled`, `link_downs`, `mac_address` |
+| **&lt;port&gt; link** | binary sensor (connectivity) | `/interface` `running` | One per ethernet / SFP port. Attributes: `port`, `default_name`, `comment`, `rate` (`1Gbps`), `speed_mbps`, `disabled`, `link_downs`, `mac_address`, and the device plugged in: `device`, `device_ip`, `device_mac`, `device_source` |
 | **&lt;port&gt; RX** / **TX** | sensor (data rate) | `/interface` `rx-byte` / `tx-byte` | Average rate between two polls, from the router's point of view: RX = received on the port, TX = sent out of it. Attributes: `port`, `direction`. Empty after the first poll |
 | CPU temperature, Fan1 speed, … | sensor | `/system/health` | Created from whatever the router reports (°C, RPM, V, W, A) |
 | Fan, PSU1, PSU2, … | binary sensor (problem) | `/system/health` `*-state` | On when the value is not `ok` (e.g. a dual-PSU router with one power cord → PSU2 = problem). Diagnostic |
@@ -196,6 +196,14 @@ the entity; the `port` attribute follows the current name. The link speed comes 
 `/interface/ethernet/monitor`, read only when a port goes up/down and every 5 minutes. RX/TX
 sensors change on every poll: with many ports, consider excluding the ones you do not need
 from the recorder.
+
+**Device on a port** (`device` attribute): the LLDP/MNDP/CDP neighbor on that port
+(`/ip/neighbor`, e.g. an access point or another switch); otherwise the MAC addresses learned
+on the port (`/interface/bridge/host`) are looked up in the DHCP leases: if exactly one of
+them has a lease **comment**, that name wins (a PC with VMs behind it still shows the PC), and
+a port with a single MAC falls back to the lease host name. A switch without a DHCP server
+uses the leases of the other routers added to the integration. When a device goes quiet and
+leaves the MAC table, its name is kept for an hour.
 
 ## How blocking works
 
