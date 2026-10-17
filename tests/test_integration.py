@@ -329,7 +329,12 @@ async def test_health_endpoint_error_is_tolerated(hass: HomeAssistant, aioclient
     )
     entry = await _setup(hass)
     assert entry.state is ConfigEntryState.LOADED
-    assert not hass.states.async_entity_ids("binary_sensor")
+    # /system/health lỗi → không có binary_sensor health; link cổng ethernet vẫn có.
+    assert not [
+        eid
+        for eid in hass.states.async_entity_ids("binary_sensor")
+        if "health" in eid
+    ]
     upd = hass.states.get(_entity_id(hass, "update", "routeros_update"))
     assert upd.state == "off"  # chưa có latest-version → coi như mới nhất
     # không có RouterBOARD firmware
