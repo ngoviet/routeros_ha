@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "RouterOS (MikroTik)",
-        "description": "Kết nối REST API của RouterOS (RouterOS 7.1+, service `www` hoặc `www-ssl`). User cần các policy `read`, `write` và `rest-api`.",
+        "description": "Kết nối REST API của RouterOS (RouterOS 7.1+, service `www` hoặc `www-ssl`). User cần policy `read` và `rest-api`, thêm `write` nếu dùng công tắc chặn thiết bị (switch chỉ để giám sát thì user chỉ-đọc là đủ).",
         "data": {
           "host": "Địa chỉ router",
           "port": "Cổng",
@@ -40,7 +40,8 @@
         "data": {
           "scan_interval": "Chu kỳ cập nhật (giây)",
           "block_prefix": "Tiền tố comment của rule chặn",
-          "kill_connections": "Cắt luôn các kết nối đang mở khi chặn"
+          "kill_connections": "Cắt luôn các kết nối đang mở khi chặn",
+          "monitor_ports": "Theo dõi cổng ethernet (link, tốc độ link, lưu lượng RX/TX)"
         }
       }
     }
@@ -66,6 +67,12 @@
       },
       "dhcp_clients": {
         "name": "Thiết bị DHCP"
+      },
+      "port_rx": {
+        "name": "{port} RX"
+      },
+      "port_tx": {
+        "name": "{port} TX"
       }
     },
     "update": {
@@ -74,6 +81,11 @@
       },
       "firmware": {
         "name": "Firmware RouterBOARD"
+      }
+    },
+    "binary_sensor": {
+      "port_link": {
+        "name": "{port} link"
       }
     }
   }

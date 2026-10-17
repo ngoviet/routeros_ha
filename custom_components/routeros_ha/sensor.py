@@ -1,4 +1,4 @@
-"""Sensor: CPU / RAM / ổ nhớ / uptime / số thiết bị DHCP + sensor động từ /system/health."""
+"""Sensor: CPU / RAM / ổ nhớ / uptime / số thiết bị DHCP + lưu lượng RX/TX từng cổng + sensor động từ /system/health."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from homeassistant.const import (
     PERCENTAGE,
     REVOLUTIONS_PER_MINUTE,
     EntityCategory,
+    UnitOfDataRate,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
     UnitOfPower,
@@ -111,7 +112,27 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(RouterSensor(coordinator, d) for d in SENSORS)
+    async_add_entities(
+        RouterSensor(coordinator, d)
+        for d in SENSORS
+        if d.key != "dhcp_clients" or coordinator.has_dhcp
+    )
+
+    known_ports: set[str] = set()
+
+    @callback
+    def _add_ports() -> None:
+        new = [k for k in coordinator.data.ports or {} if k not in known_ports]
+        known_ports.update(new)
+        if new:
+            async_add_entities(
+                PortRateSensor(coordinator, k, direction)
+                for k in new
+                for direction in ("rx", "tx")
+            )
+
+    _add_ports()
+    entry.async_on_unload(coordinator.async_add_listener(_add_ports))
 
     known: set[str] = set()
 
@@ -166,3 +187,48 @@ class HealthSensor(RouterOSEntity, SensorEntity):
     def native_value(self) -> float | None:
         item = self.coordinator.data.health.get(self._health)
         return _num(item.value) if item else None
+
+
+class PortRateSensor(RouterOSEntity, SensorEntity):
+    """Lưu lượng 1 cổng (bit/s, trung bình giữa 2 lần poll) theo chiều của router.
+
+    rx = router nhận vào từ cổng (thiết bị phía sau gửi lên), tx = router gửi ra cổng.
+    Thuộc tính `port` + `direction` để card sơ đồ mạng tìm entity mà không đoán entity_id.
+    """
+
+    _attr_device_class = SensorDeviceClass.DATA_RATE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfDataRate.BITS_PER_SECOND
+    _attr_suggested_unit_of_measurement = UnitOfDataRate.MEGABITS_PER_SECOND
+    _attr_suggested_display_precision = 2
+
+    def __init__(
+        self, coordinator: RouterOSCoordinator, key: str, direction: str
+    ) -> None:
+        super().__init__(coordinator, f"port_{key}_{direction}")
+        self._key = key
+        self._direction = direction
+        self._attr_translation_key = f"port_{direction}"
+        port = coordinator.data.ports[key]
+        self._attr_translation_placeholders = {"port": port.name}
+        self._attr_icon = (
+            "mdi:download-network" if direction == "rx" else "mdi:upload-network"
+        )
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._key in (self.coordinator.data.ports or {})
+
+    @property
+    def native_value(self) -> int | None:
+        port = (self.coordinator.data.ports or {}).get(self._key)
+        if port is None:
+            return None
+        return port.rx_bps if self._direction == "rx" else port.tx_bps
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        port = (self.coordinator.data.ports or {}).get(self._key)
+        if port is None:
+            return None
+        return {"port": port.name, "direction": self._direction}

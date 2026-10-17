@@ -13,9 +13,17 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.routeros_ha.config_flow import normalize_host
 from custom_components.routeros_ha.const import DOMAIN
-from custom_components.routeros_ha.coordinator import parse_rules, parse_uptime
+from custom_components.routeros_ha.coordinator import (
+    Lease,
+    parse_leases,
+    parse_link_rate,
+    parse_rules,
+    parse_uptime,
+    pick_device,
+    throughput,
+)
 
-from .conftest import FILTERS, HOST, REST, SERIAL, USER_INPUT, mock_router
+from .conftest import FILTERS, HOST, INTERFACES, REST, SERIAL, USER_INPUT, mock_router
 
 
 def _entry() -> MockConfigEntry:
@@ -74,6 +82,72 @@ def test_parse_rules_duplicate_comment():
         {".id": "*2", "comment": "Block IP - TV", "disabled": "true"},
     ]
     assert set(parse_rules(rows, "Block IP - ")) == {"tv", "tv_2"}
+
+
+@pytest.mark.parametrize(
+    "value,mbps",
+    [
+        ("1Gbps", 1000),
+        ("2.5Gbps", 2500),
+        ("10Gbps", 10000),
+        ("100Mbps", 100),
+        ("10Mbps", 10),
+        (None, None),
+        ("", None),
+    ],
+)
+def test_parse_link_rate(value, mbps):
+    assert parse_link_rate(value) == mbps
+
+
+def test_parse_leases_prefers_commented_and_bound():
+    rows = [
+        {
+            "mac-address": "aa:bb",
+            "address": "10.0.0.5",
+            "host-name": "x",
+            "status": "bound",
+        },
+        {
+            "mac-address": "AA:BB",
+            "address": "10.0.1.5",
+            "comment": "Máy in",
+            "status": "waiting",
+        },
+        {"mac-address": "CC:DD", "address": "10.0.0.6", "status": "bound"},
+        {"address": "10.0.0.7"},
+    ]
+    leases = parse_leases(rows)
+    assert set(leases) == {"AA:BB", "CC:DD"}
+    assert leases["AA:BB"].name == "Máy in" and leases["AA:BB"].address == "10.0.1.5"
+    assert leases["CC:DD"].name is None
+
+
+def test_pick_device():
+    leases = {
+        "A": Lease("A", "10.0.0.1", "PC2", True),
+        "B": Lease("B", "10.0.0.2", "imac-vm", False),
+        "C": Lease("C", "10.0.0.3", "phone", False),
+    }
+    # LLDP thắng
+    dev = pick_device(("Aruba T2", "10.0.0.52"), {"A"}, leases)
+    assert (dev.name, dev.ip, dev.source) == ("Aruba T2", "10.0.0.52", "lldp")
+    # nhiều MAC nhưng chỉ 1 lease có comment → máy chủ (VM phía sau không tính)
+    dev = pick_device(None, {"A", "B", "X"}, leases)
+    assert (dev.name, dev.ip, dev.mac, dev.source) == ("PC2", "10.0.0.1", "A", "dhcp")
+    # 1 MAC, lease chỉ có host-name
+    assert pick_device(None, {"C"}, leases).name == "phone"
+    # nhiều MAC không ai có comment → không đoán
+    assert pick_device(None, {"B", "C"}, leases) is None
+    assert pick_device(None, set(), leases) is None
+    assert pick_device(("", None), {"Z"}, leases) is None
+
+
+def test_throughput():
+    assert throughput(1000, 4750, 30) == 1000  # 3750 B * 8 / 30 s
+    assert throughput(None, 10, 30) is None
+    assert throughput(10, 5, 30) is None  # bộ đếm về 0 sau khi reboot
+    assert throughput(10, 20, 0) is None
 
 
 @pytest.mark.parametrize(
@@ -301,7 +375,10 @@ async def test_health_endpoint_error_is_tolerated(hass: HomeAssistant, aioclient
     )
     entry = await _setup(hass)
     assert entry.state is ConfigEntryState.LOADED
-    assert not hass.states.async_entity_ids("binary_sensor")
+    # /system/health lỗi → không có binary_sensor health; link cổng ethernet vẫn có.
+    assert not [
+        eid for eid in hass.states.async_entity_ids("binary_sensor") if "health" in eid
+    ]
     upd = hass.states.get(_entity_id(hass, "update", "routeros_update"))
     assert upd.state == "off"  # chưa có latest-version → coi như mới nhất
     # không có RouterBOARD firmware
@@ -345,3 +422,122 @@ async def test_reauth_updates_password(hass: HomeAssistant, router):
     await hass.async_block_till_done()
     assert result["reason"] == "reauth_successful"
     assert entry.data["password"] == "new"
+
+
+# --- cổng ethernet ---------------------------------------------------------
+
+
+async def test_port_entities(hass: HomeAssistant, router):
+    await _setup(hass)
+
+    link = hass.states.get(_entity_id(hass, "binary_sensor", "port_ether1_link"))
+    assert link.state == "on"
+    assert link.attributes["port"] == "ether1"
+    assert link.attributes["rate"] == "1Gbps"
+    assert link.attributes["speed_mbps"] == 1000
+    assert link.attributes["device_class"] == "connectivity"
+
+    # 2 MAC trên ether1, chỉ NAS có comment trong lease → tên thiết bị = NAS
+    assert link.attributes["device"] == "NAS"
+    assert link.attributes["device_ip"] == "192.168.88.12"
+    assert link.attributes["device_source"] == "dhcp"
+
+    sfp = hass.states.get(_entity_id(hass, "binary_sensor", "port_sfp_sfpplus1_link"))
+    assert sfp.attributes["speed_mbps"] == 10000
+    assert sfp.attributes["device"] == "CRS326"  # LLDP neighbor
+    assert sfp.attributes["device_source"] == "lldp"
+
+    # cổng đổi tên: unique_id theo default-name, thuộc tính `port` theo tên hiện tại
+    wan = hass.states.get(_entity_id(hass, "binary_sensor", "port_ether2_link"))
+    assert wan.state == "off"
+    assert wan.attributes["device"] is None
+    assert wan.attributes["port"] == "wan-viettel"
+    assert wan.attributes["comment"] == "Modem"
+    assert wan.attributes["disabled"] is True
+    assert wan.attributes["speed_mbps"] is None
+
+    rx = hass.states.get(_entity_id(hass, "sensor", "port_ether1_rx"))
+    assert rx.attributes["port"] == "ether1"
+    assert rx.attributes["direction"] == "rx"
+    assert rx.attributes["device_class"] == "data_rate"
+    # lần đọc đầu chưa có mốc để tính tốc độ
+    assert rx.state == "unknown"
+    assert (
+        hass.states.get(_entity_id(hass, "sensor", "port_ether1_tx")).state == "unknown"
+    )
+
+
+async def test_port_rate_from_counters(hass: HomeAssistant, router, monkeypatch):
+    import custom_components.routeros_ha.coordinator as coord
+
+    clock = [1000.0]
+    monkeypatch.setattr(coord.time, "monotonic", lambda: clock[0])
+    entry = await _setup(hass)
+
+    rows = [dict(r) for r in INTERFACES]
+    rows[0]["rx-byte"] = str(1000000 + 3750000)  # +3,75 MB trong 30 s = 1 Mbit/s
+    rows[0]["tx-byte"] = str(2000000 + 375000)
+    mock_interfaces(router, rows)
+    clock[0] += 30
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+
+    rx = hass.states.get(_entity_id(hass, "sensor", "port_ether1_rx"))
+    assert rx.attributes["unit_of_measurement"] == "Mbit/s"
+    assert float(rx.state) == pytest.approx(1.0)
+    tx = hass.states.get(_entity_id(hass, "sensor", "port_ether1_tx"))
+    assert float(tx.state) == pytest.approx(0.1)
+    # running không đổi + chưa tới hạn → không đọc lại tốc độ link
+    assert not _calls(router, "POST", "interface/ethernet/monitor")
+
+
+async def test_ports_disabled_by_option(hass: HomeAssistant, router):
+    entry = _entry()
+    entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(entry, options={"monitor_ports": False})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert not _calls(router, "GET", "interface")
+    assert not [
+        e
+        for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        if "_port_" in e.unique_id
+    ]
+
+
+async def test_switch_without_dhcp_server(hass: HomeAssistant, aioclient_mock):
+    """CRS chỉ làm switch: không có DHCP server → không tạo sensor DHCP."""
+    mock_router(aioclient_mock, {("get", "ip/dhcp-server"): {"json": []}})
+    entry = await _setup(hass)
+    assert entry.state is ConfigEntryState.LOADED
+    reg = er.async_get(hass)
+    assert reg.async_get_entity_id("sensor", DOMAIN, f"{SERIAL}_dhcp_clients") is None
+    assert reg.async_get_entity_id("sensor", DOMAIN, f"{SERIAL}_port_ether1_rx")
+
+
+def mock_interfaces(mock, rows: list[dict]) -> None:
+    """Thay response GET /interface (aioclient_mock khớp route đăng ký trước)."""
+    mock.mock_calls.clear()
+    mock._mocks = [m for m in mock._mocks if not str(m._url).endswith("/interface")]
+    mock.get(REST + "interface", json=rows)
+
+
+async def test_switch_takes_device_names_from_router_leases(
+    hass: HomeAssistant, router
+):
+    """Switch không có DHCP server: tên thiết bị lấy từ lease của router đã thêm trước."""
+    from custom_components.routeros_ha import build_api
+    from custom_components.routeros_ha.coordinator import RouterOSCoordinator
+
+    router = await _setup(hass)  # router chính (có lease NAS)
+    assert router.runtime_data.data.leases["AA:00:00:00:00:01"].name == "NAS"
+
+    switch = MockConfigEntry(
+        domain=DOMAIN, title="CRS", unique_id="SW1", data=dict(USER_INPUT)
+    )
+    switch.add_to_hass(hass)
+    coord = RouterOSCoordinator(
+        hass, build_api(hass, dict(USER_INPUT)), switch, 30, "Block IP - ", False
+    )
+    merged = coord._all_leases({})
+    assert merged["AA:00:00:00:00:01"].name == "NAS"
