@@ -13,9 +13,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.routeros_ha.config_flow import normalize_host
 from custom_components.routeros_ha.const import DOMAIN
-from custom_components.routeros_ha.coordinator import parse_rules, parse_uptime
+from custom_components.routeros_ha.coordinator import (
+    parse_link_rate,
+    parse_rules,
+    parse_uptime,
+    throughput,
+)
 
-from .conftest import FILTERS, HOST, REST, SERIAL, USER_INPUT, mock_router
+from .conftest import FILTERS, HOST, INTERFACES, REST, SERIAL, USER_INPUT, mock_router
 
 
 def _entry() -> MockConfigEntry:
@@ -74,6 +79,29 @@ def test_parse_rules_duplicate_comment():
         {".id": "*2", "comment": "Block IP - TV", "disabled": "true"},
     ]
     assert set(parse_rules(rows, "Block IP - ")) == {"tv", "tv_2"}
+
+
+@pytest.mark.parametrize(
+    "value,mbps",
+    [
+        ("1Gbps", 1000),
+        ("2.5Gbps", 2500),
+        ("10Gbps", 10000),
+        ("100Mbps", 100),
+        ("10Mbps", 10),
+        (None, None),
+        ("", None),
+    ],
+)
+def test_parse_link_rate(value, mbps):
+    assert parse_link_rate(value) == mbps
+
+
+def test_throughput():
+    assert throughput(1000, 4750, 30) == 1000  # 3750 B * 8 / 30 s
+    assert throughput(None, 10, 30) is None
+    assert throughput(10, 5, 30) is None  # bộ đếm về 0 sau khi reboot
+    assert throughput(10, 20, 0) is None
 
 
 @pytest.mark.parametrize(
@@ -345,3 +373,93 @@ async def test_reauth_updates_password(hass: HomeAssistant, router):
     await hass.async_block_till_done()
     assert result["reason"] == "reauth_successful"
     assert entry.data["password"] == "new"
+
+
+# --- cổng ethernet ---------------------------------------------------------
+
+
+async def test_port_entities(hass: HomeAssistant, router):
+    await _setup(hass)
+
+    link = hass.states.get(_entity_id(hass, "binary_sensor", "port_ether1_link"))
+    assert link.state == "on"
+    assert link.attributes["port"] == "ether1"
+    assert link.attributes["rate"] == "1Gbps"
+    assert link.attributes["speed_mbps"] == 1000
+    assert link.attributes["device_class"] == "connectivity"
+
+    sfp = hass.states.get(_entity_id(hass, "binary_sensor", "port_sfp_sfpplus1_link"))
+    assert sfp.attributes["speed_mbps"] == 10000
+
+    # cổng đổi tên: unique_id theo default-name, thuộc tính `port` theo tên hiện tại
+    wan = hass.states.get(_entity_id(hass, "binary_sensor", "port_ether2_link"))
+    assert wan.state == "off"
+    assert wan.attributes["port"] == "wan-viettel"
+    assert wan.attributes["comment"] == "Modem"
+    assert wan.attributes["disabled"] is True
+    assert wan.attributes["speed_mbps"] is None
+
+    rx = hass.states.get(_entity_id(hass, "sensor", "port_ether1_rx"))
+    assert rx.attributes["port"] == "ether1"
+    assert rx.attributes["direction"] == "rx"
+    assert rx.attributes["device_class"] == "data_rate"
+    # lần đọc đầu chưa có mốc để tính tốc độ
+    assert rx.state == "unknown"
+    assert (
+        hass.states.get(_entity_id(hass, "sensor", "port_ether1_tx")).state == "unknown"
+    )
+
+
+async def test_port_rate_from_counters(hass: HomeAssistant, router, monkeypatch):
+    import custom_components.routeros_ha.coordinator as coord
+
+    clock = [1000.0]
+    monkeypatch.setattr(coord.time, "monotonic", lambda: clock[0])
+    entry = await _setup(hass)
+
+    rows = [dict(r) for r in INTERFACES]
+    rows[0]["rx-byte"] = str(1000000 + 3750000)  # +3,75 MB trong 30 s = 1 Mbit/s
+    rows[0]["tx-byte"] = str(2000000 + 375000)
+    mock_interfaces(router, rows)
+    clock[0] += 30
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+
+    rx = hass.states.get(_entity_id(hass, "sensor", "port_ether1_rx"))
+    assert rx.attributes["unit_of_measurement"] == "Mbit/s"
+    assert float(rx.state) == pytest.approx(1.0)
+    tx = hass.states.get(_entity_id(hass, "sensor", "port_ether1_tx"))
+    assert float(tx.state) == pytest.approx(0.1)
+    # running không đổi + chưa tới hạn → không đọc lại tốc độ link
+    assert not _calls(router, "POST", "interface/ethernet/monitor")
+
+
+async def test_ports_disabled_by_option(hass: HomeAssistant, router):
+    entry = _entry()
+    entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(entry, options={"monitor_ports": False})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert not _calls(router, "GET", "interface")
+    assert not [
+        e
+        for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        if "_port_" in e.unique_id
+    ]
+
+
+async def test_switch_without_dhcp_server(hass: HomeAssistant, aioclient_mock):
+    """CRS chỉ làm switch: không có DHCP server → không tạo sensor DHCP."""
+    mock_router(aioclient_mock, {("get", "ip/dhcp-server"): {"json": []}})
+    entry = await _setup(hass)
+    assert entry.state is ConfigEntryState.LOADED
+    reg = er.async_get(hass)
+    assert reg.async_get_entity_id("sensor", DOMAIN, f"{SERIAL}_dhcp_clients") is None
+    assert reg.async_get_entity_id("sensor", DOMAIN, f"{SERIAL}_port_ether1_rx")
+
+
+def mock_interfaces(mock, rows: list[dict]) -> None:
+    """Thay response GET /interface (aioclient_mock khớp route đăng ký trước)."""
+    mock.mock_calls.clear()
+    mock._mocks = [m for m in mock._mocks if not str(m._url).endswith("/interface")]
+    mock.get(REST + "interface", json=rows)

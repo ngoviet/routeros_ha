@@ -88,6 +88,49 @@ CONNECTIONS = [
     {".id": "*A3", "src-address": "192.168.10.200:443"},
     {".id": "*A4", "src-address": "192.168.10.21:5353"},
 ]
+# GET /interface?type=ether: chỉ cổng vật lý; mọi số là chuỗi.
+INTERFACES = [
+    {
+        ".id": "*2",
+        "name": "ether1",
+        "default-name": "ether1",
+        "running": "true",
+        "disabled": "false",
+        "rx-byte": "1000000",
+        "tx-byte": "2000000",
+        "link-downs": "1",
+        "mac-address": "F4:1E:57:00:00:01",
+    },
+    {
+        ".id": "*3",
+        "name": "wan-viettel",  # đã đổi tên → key vẫn theo default-name
+        "default-name": "ether2",
+        "comment": "Modem",
+        "running": "false",
+        "disabled": "true",
+        "rx-byte": "0",
+        "tx-byte": "0",
+        "link-downs": "0",
+        "mac-address": "F4:1E:57:00:00:02",
+    },
+    {
+        ".id": "*12",
+        "name": "sfp-sfpplus1",
+        "default-name": "sfp-sfpplus1",
+        "running": "true",
+        "disabled": "false",
+        "rx-byte": "5000000",
+        "tx-byte": "6000000",
+        "link-downs": "2",
+        "mac-address": "F4:1E:57:00:00:12",
+    },
+]
+# POST /interface/ethernet/monitor once=true
+ETHERNET_MONITOR = [
+    {"name": "ether1", "status": "link-ok", "rate": "1Gbps"},
+    {"name": "wan-viettel", "status": "no-link"},
+    {"name": "sfp-sfpplus1", "status": "link-ok", "rate": "10Gbps"},
+]
 
 
 DEFAULT_ROUTES: dict[tuple[str, str], dict] = {
@@ -100,6 +143,9 @@ DEFAULT_ROUTES: dict[tuple[str, str], dict] = {
     ("get", "ip/firewall/filter"): {"json": FILTERS},
     ("get", "ip/dhcp-server/lease"): {"json": [{".id": "*1"}, {".id": "*2"}]},
     ("get", "ip/firewall/connection"): {"json": CONNECTIONS},
+    ("get", "ip/dhcp-server"): {"json": [{".id": "*1"}]},
+    ("get", "interface"): {"json": INTERFACES},
+    ("post", "interface/ethernet/monitor"): {"json": ETHERNET_MONITOR},
 }
 
 

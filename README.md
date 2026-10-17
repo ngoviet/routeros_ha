@@ -18,6 +18,9 @@ with a switch; on top of that you get router health sensors and update notificat
   running video or game stops too (not only new connections).
 - **Router health** — CPU, RAM, storage, uptime, DHCP clients, temperatures, fan speed,
   voltage / power, fan and PSU problems.
+- **Ethernet ports** — link, link speed and RX/TX rate of every ethernet / SFP port, also on
+  CRS switches (read-only user is enough). Feeds network-map cards such as
+  [lan-topo-card](https://github.com/ngoviet/lan-topo-card).
 - **Update notifications** — RouterOS and RouterBOARD firmware (read-only, never installs).
 - **No extra dependencies** — talks to the router with Home Assistant's own `aiohttp`.
 - UI setup (config flow), re-authentication, options, diagnostics, English and Vietnamese UI.
@@ -70,7 +73,13 @@ Assistant. Limiting `address` to the IP of your Home Assistant host is recommend
 ```
 
 `write` is needed to toggle block rules and to drop connections. Without it every sensor
-still works, but the switches fail.
+still works, but the switches fail. For a switch you only monitor (ports, health), a
+read-only group is enough:
+
+```routeros
+/user/group add name=ha-read policy=read,rest-api,!local,!telnet,!ssh,!ftp,!reboot,!write,!policy,!test,!winbox,!password,!web,!sniff,!sensitive,!romon,!api
+/user add name=ha-ro group=ha-read address=192.168.88.10/32 password="a-long-random-password"
+```
 
 ### 1.3 Create one block rule per device
 
@@ -152,6 +161,7 @@ can be added as separate entries.
 | Update interval | 30 s | How often the router is polled (10–600 s) |
 | Block rule comment prefix | `Block IP - ` | Filter rules whose comment starts with this become switches |
 | Drop open connections when blocking | on | Remove the device's connection-tracking entries when blocking |
+| Monitor ethernet ports | on | Link, link speed and RX/TX rate per ethernet / SFP port (3 entities per port) |
 
 Changing options reloads the integration; no restart needed.
 
@@ -166,7 +176,9 @@ All entities belong to one device named after the router identity (`/system/iden
 | Memory usage | sensor (%) | `/system/resource` | |
 | Storage usage | sensor (%) | `/system/resource` | Diagnostic |
 | Uptime | sensor (timestamp) | `/system/resource` | Time the router booted |
-| DHCP clients | sensor | `/ip/dhcp-server/lease` | Number of leases with status `bound` |
+| DHCP clients | sensor | `/ip/dhcp-server/lease` | Number of leases with status `bound`. Not created on a device without a DHCP server (e.g. a CRS switch) |
+| **&lt;port&gt; link** | binary sensor (connectivity) | `/interface` `running` | One per ethernet / SFP port. Attributes: `port`, `default_name`, `comment`, `rate` (`1Gbps`), `speed_mbps`, `disabled`, `link_downs`, `mac_address` |
+| **&lt;port&gt; RX** / **TX** | sensor (data rate) | `/interface` `rx-byte` / `tx-byte` | Average rate between two polls, from the router's point of view: RX = received on the port, TX = sent out of it. Attributes: `port`, `direction`. Empty after the first poll |
 | CPU temperature, Fan1 speed, … | sensor | `/system/health` | Created from whatever the router reports (°C, RPM, V, W, A) |
 | Fan, PSU1, PSU2, … | binary sensor (problem) | `/system/health` `*-state` | On when the value is not `ok` (e.g. a dual-PSU router with one power cord → PSU2 = problem). Diagnostic |
 | RouterOS | update | `/system/package/update` | Checked every 12 hours. **Read-only** |
@@ -178,6 +190,12 @@ a dashboard should do. Upgrade from WinBox / WebFig (the device page has a link 
 
 Health sensors depend on the model: CHR / x86 has no `/system/health`, so those entities are
 simply not created.
+
+Port entities are keyed by the port's `default-name`, so renaming a port on the router keeps
+the entity; the `port` attribute follows the current name. The link speed comes from
+`/interface/ethernet/monitor`, read only when a port goes up/down and every 5 minutes. RX/TX
+sensors change on every poll: with many ports, consider excluding the ones you do not need
+from the recorder.
 
 ## How blocking works
 

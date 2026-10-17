@@ -1,9 +1,13 @@
-"""Binary sensor sự cố từ /system/health dạng trạng thái (fan-state, psu1-state, ...).
+"""Binary sensor: sự cố từ /system/health + link từng cổng ethernet.
 
-`on` = có sự cố (giá trị khác "ok"). Ví dụ CCR2004 chỉ cắm 1 nguồn → psu2-state = "fail".
+Health dạng trạng thái (fan-state, psu1-state, ...): `on` = có sự cố (giá trị khác "ok").
+Ví dụ CCR2004 chỉ cắm 1 nguồn → psu2-state = "fail".
+Link cổng: `on` = cổng có link (`running`), thuộc tính kèm tốc độ link.
 """
 
 from __future__ import annotations
+
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -43,6 +47,18 @@ async def async_setup_entry(
     _add_new()
     entry.async_on_unload(coordinator.async_add_listener(_add_new))
 
+    known_ports: set[str] = set()
+
+    @callback
+    def _add_ports() -> None:
+        new = [k for k in coordinator.data.ports or {} if k not in known_ports]
+        known_ports.update(new)
+        if new:
+            async_add_entities(PortLink(coordinator, k) for k in new)
+
+    _add_ports()
+    entry.async_on_unload(coordinator.async_add_listener(_add_ports))
+
 
 class HealthProblem(RouterOSEntity, BinarySensorEntity):
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
@@ -66,3 +82,40 @@ class HealthProblem(RouterOSEntity, BinarySensorEntity):
     def extra_state_attributes(self) -> dict[str, str] | None:
         item = self.coordinator.data.health.get(self._health)
         return {"value": item.value} if item else None
+
+
+class PortLink(RouterOSEntity, BinarySensorEntity):
+    """Link của 1 cổng ethernet / SFP. Chỉ đọc — không có thao tác bật/tắt cổng."""
+
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+    _attr_translation_key = "port_link"
+
+    def __init__(self, coordinator: RouterOSCoordinator, key: str) -> None:
+        super().__init__(coordinator, f"port_{key}_link")
+        self._key = key
+        self._attr_translation_placeholders = {"port": coordinator.data.ports[key].name}
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._key in (self.coordinator.data.ports or {})
+
+    @property
+    def is_on(self) -> bool | None:
+        port = (self.coordinator.data.ports or {}).get(self._key)
+        return None if port is None else port.running
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        port = (self.coordinator.data.ports or {}).get(self._key)
+        if port is None:
+            return None
+        return {
+            "port": port.name,
+            "default_name": port.default_name,
+            "comment": port.comment,
+            "rate": port.rate,
+            "speed_mbps": port.speed_mbps,
+            "disabled": port.disabled,
+            "link_downs": port.link_downs,
+            "mac_address": port.mac_address,
+        }

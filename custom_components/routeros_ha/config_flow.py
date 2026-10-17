@@ -22,11 +22,13 @@ from .api import RouterOSApiError, RouterOSAuthError
 from .const import (
     CONF_BLOCK_PREFIX,
     CONF_KILL_CONNECTIONS,
+    CONF_MONITOR_PORTS,
     CONF_SCAN_INTERVAL,
     CONF_SSL,
     CONF_VERIFY_SSL,
     DEFAULT_BLOCK_PREFIX,
     DEFAULT_KILL_CONNECTIONS,
+    DEFAULT_MONITOR_PORTS,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -177,6 +179,10 @@ class RouterOSOptionsFlow(OptionsFlow):
                         default=opts.get(
                             CONF_KILL_CONNECTIONS, DEFAULT_KILL_CONNECTIONS
                         ),
+                    ): bool,
+                    vol.Required(
+                        CONF_MONITOR_PORTS,
+                        default=opts.get(CONF_MONITOR_PORTS, DEFAULT_MONITOR_PORTS),
                     ): bool,
                 }
             ),
