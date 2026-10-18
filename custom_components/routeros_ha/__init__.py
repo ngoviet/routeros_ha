@@ -20,11 +20,13 @@ from .api import RouterOSApi
 from .const import (
     CONF_BLOCK_PREFIX,
     CONF_KILL_CONNECTIONS,
+    CONF_MONITOR_PORTS,
     CONF_SCAN_INTERVAL,
     CONF_SSL,
     CONF_VERIFY_SSL,
     DEFAULT_BLOCK_PREFIX,
     DEFAULT_KILL_CONNECTIONS,
+    DEFAULT_MONITOR_PORTS,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -66,6 +68,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: RouterOSConfigEntry) -> 
         int(opts.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)),
         opts.get(CONF_BLOCK_PREFIX, DEFAULT_BLOCK_PREFIX),
         opts.get(CONF_KILL_CONNECTIONS, DEFAULT_KILL_CONNECTIONS),
+        opts.get(CONF_MONITOR_PORTS, DEFAULT_MONITOR_PORTS),
     )
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
@@ -73,10 +76,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: RouterOSConfigEntry) -> 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     _LOGGER.debug(
-        "RouterOS %s ready: %d rule chặn %s",
+        "RouterOS %s ready: %d rule chặn %s, %d cổng",
         coordinator.identity,
         len(coordinator.data.rules),
         list(coordinator.data.rules),
+        len(coordinator.data.ports or {}),
     )
     return True
 

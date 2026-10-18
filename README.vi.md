@@ -18,6 +18,9 @@ các sensor sức khoẻ router và thông báo có bản cập nhật.
   chạy cũng dừng (không chỉ chặn kết nối mới).
 - **Sức khoẻ router** — CPU, RAM, bộ nhớ lưu trữ, uptime, số thiết bị DHCP, nhiệt độ, tốc độ
   quạt, điện áp / công suất, sự cố quạt và nguồn.
+- **Cổng ethernet** — link, tốc độ link và lưu lượng RX/TX của từng cổng ethernet / SFP, dùng
+  được cả cho switch CRS (user chỉ-đọc là đủ). Làm nguồn cho card sơ đồ mạng như
+  [lan-topo-card](https://github.com/ngoviet/lan-topo-card).
 - **Thông báo cập nhật** — RouterOS và firmware RouterBOARD (chỉ đọc, không bao giờ tự cài).
 - **Không thư viện ngoài** — dùng `aiohttp` có sẵn của Home Assistant.
 - Cài đặt bằng giao diện (config flow), đăng nhập lại, tuỳ chọn, diagnostics, giao diện tiếng
@@ -67,6 +70,13 @@ hạn `address` về đúng IP của máy chạy Home Assistant.
 ```routeros
 /user/group add name=ha-rest policy=read,write,rest-api,!local,!telnet,!ssh,!ftp,!reboot,!policy,!test,!winbox,!password,!web,!sniff,!sensitive,!romon,!api
 /user add name=ha group=ha-rest address=192.168.88.10/32 password="mat-khau-dai-ngau-nhien"
+```
+
+Switch chỉ để giám sát (cổng, sức khoẻ) thì dùng group chỉ-đọc là đủ:
+
+```routeros
+/user/group add name=ha-read policy=read,rest-api,!local,!telnet,!ssh,!ftp,!reboot,!write,!policy,!test,!winbox,!password,!web,!sniff,!sensitive,!romon,!api
+/user add name=ha-ro group=ha-read address=192.168.88.10/32 password="mat-khau-dai-ngau-nhien"
 ```
 
 Cần `write` để bật/tắt rule chặn và cắt kết nối. Thiếu `write` thì mọi sensor vẫn chạy nhưng
@@ -148,6 +158,7 @@ thành nhiều mục riêng.
 | Chu kỳ cập nhật | 30 s | Bao lâu hỏi router một lần (10–600 s) |
 | Tiền tố comment của rule chặn | `Block IP - ` | Rule filter có comment bắt đầu bằng chuỗi này thành công tắc |
 | Cắt luôn các kết nối đang mở khi chặn | bật | Xoá connection-tracking của thiết bị khi chặn |
+| Theo dõi cổng ethernet | bật | Link, tốc độ link, lưu lượng RX/TX từng cổng ethernet / SFP (3 entity / cổng) |
 
 Đổi tuỳ chọn là integration tự nạp lại, không cần khởi động lại.
 
@@ -162,7 +173,9 @@ Mọi entity thuộc một thiết bị mang tên identity của router (`/syste
 | RAM đã dùng | sensor (%) | `/system/resource` | |
 | Bộ nhớ lưu trữ đã dùng | sensor (%) | `/system/resource` | Diagnostic |
 | Thời điểm khởi động | sensor (timestamp) | `/system/resource` | Lúc router khởi động |
-| Thiết bị DHCP | sensor | `/ip/dhcp-server/lease` | Số lease đang `bound` |
+| Thiết bị DHCP | sensor | `/ip/dhcp-server/lease` | Số lease đang `bound`. Không tạo trên máy không chạy DHCP server (vd switch CRS) |
+| **&lt;cổng&gt; link** | binary sensor (connectivity) | `/interface` `running` | Một cái / cổng ethernet, SFP. Thuộc tính: `port`, `default_name`, `comment`, `rate` (`1Gbps`), `speed_mbps`, `disabled`, `link_downs`, `mac_address`, và thiết bị đang cắm: `device`, `device_ip`, `device_mac`, `device_source` |
+| **&lt;cổng&gt; RX** / **TX** | sensor (data rate) | `/interface` `rx-byte` / `tx-byte` | Tốc độ trung bình giữa 2 lần đọc, theo chiều của router: RX = nhận vào ở cổng, TX = gửi ra. Thuộc tính: `port`, `direction`. Lần đọc đầu chưa có số |
 | CPU temperature, Fan1 speed, … | sensor | `/system/health` | Tự tạo theo những gì router báo (°C, RPM, V, W, A) |
 | Fan, PSU1, PSU2, … | binary sensor (problem) | `/system/health` `*-state` | Bật khi giá trị khác `ok` (vd router 2 nguồn chỉ cắm 1 dây → PSU2 = sự cố). Diagnostic |
 | RouterOS | update | `/system/package/update` | Kiểm tra mỗi 12 giờ. **Chỉ đọc** |
@@ -173,6 +186,18 @@ Entity update cố ý không có nút *Install*: cài RouterOS làm router khở
 (trang thiết bị có link mở WebFig).
 
 Sensor health tuỳ model: CHR / x86 không có `/system/health` nên các entity đó không được tạo.
+
+Entity cổng gắn theo `default-name` nên đổi tên cổng trên router vẫn giữ entity; thuộc tính
+`port` theo tên hiện tại. Tốc độ link đọc từ `/interface/ethernet/monitor`, chỉ khi có cổng
+lên/xuống và mỗi 5 phút. Sensor RX/TX đổi mỗi lần đọc: nhiều cổng thì nên loại các cổng không
+cần lịch sử khỏi recorder.
+
+**Thiết bị trên cổng** (thuộc tính `device`): ưu tiên neighbor LLDP/MNDP/CDP trên cổng đó
+(`/ip/neighbor`, vd AP hay switch khác); không có thì tra các MAC học được trên cổng
+(`/interface/bridge/host`) trong DHCP lease: đúng một MAC có **comment** trong lease thì lấy
+tên đó (máy có VM phía sau vẫn ra đúng máy), cổng chỉ có một MAC thì dùng host-name của lease.
+Switch không chạy DHCP server dùng lease của các router khác đã thêm vào integration. Thiết bị
+im lặng, rời bảng MAC thì tên vẫn giữ thêm một giờ.
 
 ## Cơ chế chặn
 

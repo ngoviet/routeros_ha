@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "RouterOS (MikroTik)",
-        "description": "Connect to the RouterOS REST API (RouterOS 7.1+, service `www` or `www-ssl`). The user needs the `read`, `write` and `rest-api` policies.",
+        "description": "Connect to the RouterOS REST API (RouterOS 7.1+, service `www` or `www-ssl`). The user needs the `read` and `rest-api` policies, plus `write` for the block switches (a read-only user is enough for a switch you only monitor).",
         "data": {
           "host": "Host",
           "port": "Port",
@@ -40,7 +40,8 @@
         "data": {
           "scan_interval": "Update interval (seconds)",
           "block_prefix": "Block rule comment prefix",
-          "kill_connections": "Drop the device's open connections when blocking"
+          "kill_connections": "Drop the device's open connections when blocking",
+          "monitor_ports": "Monitor ethernet ports (link, link speed, RX/TX rate)"
         }
       }
     }
@@ -66,6 +67,12 @@
       },
       "dhcp_clients": {
         "name": "DHCP clients"
+      },
+      "port_rx": {
+        "name": "{port} RX"
+      },
+      "port_tx": {
+        "name": "{port} TX"
       }
     },
     "update": {
@@ -74,6 +81,11 @@
       },
       "firmware": {
         "name": "RouterBOARD firmware"
+      }
+    },
+    "binary_sensor": {
+      "port_link": {
+        "name": "{port} link"
       }
     }
   }
