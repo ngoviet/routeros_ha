@@ -1,5 +1,7 @@
 # RouterOS (MikroTik) for Home Assistant
 
+<!-- readme-axi type=ha -->
+
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
 [![GitHub release](https://img.shields.io/github/v/release/ngoviet/routeros_ha)](https://github.com/ngoviet/routeros_ha/releases)
 [![Validate](https://github.com/ngoviet/routeros_ha/actions/workflows/validate.yml/badge.svg)](https://github.com/ngoviet/routeros_ha/actions/workflows/validate.yml)
@@ -11,6 +13,25 @@
 Control and monitor a **MikroTik RouterOS 7** router from Home Assistant through the
 built-in **REST API**. The main job is **blocking / unblocking internet access per device**
 with a switch; on top of that you get router health sensors and update notifications.
+
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ngoviet&repository=routeros_ha&category=integration)
+
+> 🇻🇳 Built and maintained by one person in Việt Nam — if it saves you time, please
+> [support the project](#support-the-project).
+
+## Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Entities](#entities)
+- [How it works](#how-it-works)
+- [Usage](#usage)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+
+## Features
 
 - **One switch per block rule** — every firewall filter rule whose comment starts with a
   prefix (default `Block IP - `) becomes a switch. New rules show up automatically.
@@ -25,27 +46,18 @@ with a switch; on top of that you get router health sensors and update notificat
 - **No extra dependencies** — talks to the router with Home Assistant's own `aiohttp`.
 - UI setup (config flow), re-authentication, options, diagnostics, English and Vietnamese UI.
 
-> Tested on **CCR2004-16G-2S+ / RouterOS 7.24.4**. Requires **RouterOS 7.1+** (the REST API
-> was added in 7.1) and **Home Assistant 2026.9** or newer.
+## Requirements
 
-## Contents
+Tested on **CCR2004-16G-2S+ / RouterOS 7.24.4**. Requires **RouterOS 7.1+** (the REST API
+was added in 7.1) and **Home Assistant 2026.9** or newer.
 
-- [1. Prepare the router](#1-prepare-the-router)
-- [2. Install](#2-install)
-- [3. Add the integration](#3-add-the-integration)
-- [Entities](#entities)
-- [How blocking works](#how-blocking-works)
-- [Examples](#examples)
-- [Troubleshooting](#troubleshooting)
-- [Limitations](#limitations)
-- [Removal](#removal)
-- [Development](#development)
+## Installation
 
-## 1. Prepare the router
+### 1. Prepare the router
 
 Run these commands in a RouterOS terminal (WinBox → *New Terminal*, or SSH).
 
-### 1.1 Enable the REST API
+#### 1.1 Enable the REST API
 
 The REST API is served by the `www` (HTTP) or `www-ssl` (HTTPS) service — *IP → Services*.
 
@@ -62,7 +74,7 @@ The REST API is served by the `www` (HTTP) or `www-ssl` (HTTPS) service — *IP 
 Restricting the service to your LAN is a good idea:
 `/ip/service set www address=192.168.88.0/24`.
 
-### 1.2 Create a dedicated user
+#### 1.2 Create a dedicated user
 
 Create a group with only the `read`, `write` and `rest-api` policies, and a user for Home
 Assistant. Limiting `address` to the IP of your Home Assistant host is recommended.
@@ -81,7 +93,7 @@ read-only group is enough:
 /user add name=ha-ro group=ha-read address=192.168.88.10/32 password="a-long-random-password"
 ```
 
-### 1.3 Create one block rule per device
+#### 1.3 Create one block rule per device
 
 For each device you want to control, add a `forward` **drop** rule that matches the
 device, with a comment that starts with the block prefix, and leave it **disabled** (=
@@ -105,16 +117,16 @@ Notes:
   final "accept LAN → WAN" rule). You can also drag it into place in WinBox.
   Keeping it below `accept established,related` / `fasttrack` is fine: the integration
   drops the device's open connections when blocking (see
-  [How blocking works](#how-blocking-works)).
+  [How it works](#how-it-works)).
 - The rule may match anything RouterOS supports (`src-mac-address`, `src-address-list`,
   `in-interface`…). Dropping open connections only works when the rule has a single
   `src-address` IP.
 - The switch name comes from the comment after the prefix (`Living room TV`). Renaming the
   comment creates a new switch; the old one becomes unavailable (see [Limitations](#limitations)).
 
-## 2. Install
+### 2. Install the integration
 
-### HACS (recommended)
+#### HACS (recommended)
 
 [![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ngoviet&repository=routeros_ha&category=integration)
 
@@ -127,7 +139,7 @@ Click the button above, or add it by hand:
 
 HACS will notify you about new releases from then on.
 
-### Manual
+#### Manual
 
 1. Download `routeros_ha` from the [latest release](https://github.com/ngoviet/routeros_ha/releases/latest)
    (or clone the repository).
@@ -135,7 +147,13 @@ HACS will notify you about new releases from then on.
    on your Home Assistant host.
 3. **Restart Home Assistant.**
 
-## 3. Add the integration
+### Removal
+
+1. **Settings → Devices & services → RouterOS (MikroTik) → ⋮ → Delete**.
+2. Remove the repository in HACS (or delete `custom_components/routeros_ha`), restart.
+3. Optionally remove the `ha` user and group on the router. Block rules stay as they are.
+
+## Configuration
 
 [![Open your Home Assistant instance and start setting up RouterOS (MikroTik).](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=routeros_ha)
 
@@ -205,7 +223,7 @@ a port with a single MAC falls back to the lease host name. A switch without a D
 uses the leases of the other routers added to the integration. When a device goes quiet and
 leaves the MAC table, its name is kept for an hour.
 
-## How blocking works
+## How it works
 
 Turning a switch **on** sets the rule to `disabled=no`; turning it **off** sets
 `disabled=yes`. The new state shows in Home Assistant right away and is confirmed on the next
@@ -218,7 +236,7 @@ keep playing. When *Drop open connections when blocking* is on, the integration 
 the entries in `/ip/firewall/connection` whose source is the device IP, so the block is
 effective immediately. Unblocking does not touch connections.
 
-## Examples
+## Usage
 
 ### Block the kids' devices at bedtime
 
@@ -283,7 +301,7 @@ logger:
 When opening an issue, attach the diagnostics file (device page → **⋮ → Download
 diagnostics**); passwords, usernames and serial numbers are redacted.
 
-## Limitations
+### Limitations
 
 - Block rules are **IPv4** (`/ip/firewall/filter`). If your LAN has IPv6 internet, a blocked
   device can still go out over IPv6 — add a matching `/ipv6/firewall/filter` rule yourself
@@ -293,12 +311,6 @@ diagnostics**); passwords, usernames and serial numbers are redacted.
   then delete the entity.
 - The connection table is read in full when blocking; on routers with a very large number
   of connections this can take a few seconds.
-
-## Removal
-
-1. **Settings → Devices & services → RouterOS (MikroTik) → ⋮ → Delete**.
-2. Remove the repository in HACS (or delete `custom_components/routeros_ha`), restart.
-3. Optionally remove the `ha` user and group on the router. Block rules stay as they are.
 
 ## Development
 
@@ -336,9 +348,10 @@ diagnostics**); passwords, usernames and serial numbers are redacted.
   <img src="https://raw.githubusercontent.com/ngoviet/.github/main/assets/support/vietqr-card.svg" width="300" alt="VietQR — MB Bank — NGO DUC VIET — 911051212">
 </p>
 
-<p align="center"><sub>🇻🇳 VietQR: quét bằng app ngân hàng bất kỳ, nội dung <code>Ung ho routeros_ha</code>. Cảm ơn bạn! · Thank you for keeping this project alive.</sub></p>
+<p align="center"><sub>🇻🇳 VietQR: scan with any Vietnamese banking app, transfer note <code>Ung ho routeros_ha</code>. Thank you for keeping this project alive!</sub></p>
+<p align="center"><sub>Crypto (BEP20 network): <code>0x57f07d44fb581cddc028a0c67d63a8cc05aa6caa</code> · USDT · USDC · BNB · ETH · BTC</sub></p>
 <!-- support:end -->
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © Ngô Đức Việt. Not affiliated with MikroTik.

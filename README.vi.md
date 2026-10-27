@@ -1,5 +1,7 @@
 # RouterOS (MikroTik) cho Home Assistant
 
+<!-- readme-axi type=ha -->
+
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
 [![GitHub release](https://img.shields.io/github/v/release/ngoviet/routeros_ha)](https://github.com/ngoviet/routeros_ha/releases)
 [![Validate](https://github.com/ngoviet/routeros_ha/actions/workflows/validate.yml/badge.svg)](https://github.com/ngoviet/routeros_ha/actions/workflows/validate.yml)
@@ -11,6 +13,25 @@
 Điều khiển và giám sát router **MikroTik RouterOS 7** từ Home Assistant qua **REST API** có
 sẵn trên router. Việc chính: **chặn / bỏ chặn mạng của từng thiết bị** bằng công tắc; kèm
 các sensor sức khoẻ router và thông báo có bản cập nhật.
+
+[![Mở Home Assistant và mở repo này trong HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ngoviet&repository=routeros_ha&category=integration)
+
+> 🇻🇳 Dự án do một người Việt tự xây dựng và duy trì — nếu nó giúp ích cho bạn, hãy
+> [ủng hộ dự án](#ủng-hộ-dự-án).
+
+## Mục lục
+
+- [Tính năng](#tính-năng)
+- [Yêu cầu](#yêu-cầu)
+- [Cài đặt](#cài-đặt)
+- [Cấu hình](#cấu-hình)
+- [Thực thể](#thực-thể)
+- [Cách hoạt động](#cách-hoạt-động)
+- [Cách dùng](#cách-dùng)
+- [Xử lý sự cố](#xử-lý-sự-cố)
+- [Phát triển](#phát-triển)
+
+## Tính năng
 
 - **Mỗi rule chặn = một công tắc** — rule firewall filter nào có comment bắt đầu bằng tiền tố
   (mặc định `Block IP - `) sẽ thành một switch. Thêm rule mới là switch tự xuất hiện.
@@ -26,27 +47,18 @@ các sensor sức khoẻ router và thông báo có bản cập nhật.
 - Cài đặt bằng giao diện (config flow), đăng nhập lại, tuỳ chọn, diagnostics, giao diện tiếng
   Anh và tiếng Việt.
 
-> Đã kiểm tra trên **CCR2004-16G-2S+ / RouterOS 7.24.4**. Cần **RouterOS 7.1+** (REST API có
-> từ 7.1) và **Home Assistant 2026.9** trở lên.
+## Yêu cầu
 
-## Mục lục
+Đã kiểm tra trên **CCR2004-16G-2S+ / RouterOS 7.24.4**. Cần **RouterOS 7.1+** (REST API có
+từ 7.1) và **Home Assistant 2026.9** trở lên.
 
-- [1. Chuẩn bị trên router](#1-chuẩn-bị-trên-router)
-- [2. Cài đặt](#2-cài-đặt)
-- [3. Thêm integration](#3-thêm-integration)
-- [Entity](#entity)
-- [Cơ chế chặn](#cơ-chế-chặn)
-- [Ví dụ](#ví-dụ)
-- [Xử lý sự cố](#xử-lý-sự-cố)
-- [Giới hạn](#giới-hạn)
-- [Gỡ bỏ](#gỡ-bỏ)
-- [Phát triển](#phát-triển)
+## Cài đặt
 
-## 1. Chuẩn bị trên router
+### 1. Chuẩn bị trên router
 
 Chạy các lệnh dưới trong terminal RouterOS (WinBox → *New Terminal*, hoặc SSH).
 
-### 1.1 Bật REST API
+#### 1.1 Bật REST API
 
 REST API chạy trên service `www` (HTTP) hoặc `www-ssl` (HTTPS) — *IP → Services*.
 
@@ -62,7 +74,7 @@ REST API chạy trên service `www` (HTTP) hoặc `www-ssl` (HTTPS) — *IP → 
 
 Nên giới hạn service chỉ cho LAN: `/ip/service set www address=192.168.88.0/24`.
 
-### 1.2 Tạo user riêng
+#### 1.2 Tạo user riêng
 
 Tạo group chỉ có policy `read`, `write`, `rest-api` và một user cho Home Assistant. Nên giới
 hạn `address` về đúng IP của máy chạy Home Assistant.
@@ -72,17 +84,15 @@ hạn `address` về đúng IP của máy chạy Home Assistant.
 /user add name=ha group=ha-rest address=192.168.88.10/32 password="mat-khau-dai-ngau-nhien"
 ```
 
-Switch chỉ để giám sát (cổng, sức khoẻ) thì dùng group chỉ-đọc là đủ:
+Cần `write` để bật/tắt rule chặn và cắt kết nối. Thiếu `write` thì mọi sensor vẫn chạy nhưng
+công tắc báo lỗi. Switch chỉ để giám sát (cổng, sức khoẻ) thì dùng group chỉ-đọc là đủ:
 
 ```routeros
 /user/group add name=ha-read policy=read,rest-api,!local,!telnet,!ssh,!ftp,!reboot,!write,!policy,!test,!winbox,!password,!web,!sniff,!sensitive,!romon,!api
 /user add name=ha-ro group=ha-read address=192.168.88.10/32 password="mat-khau-dai-ngau-nhien"
 ```
 
-Cần `write` để bật/tắt rule chặn và cắt kết nối. Thiếu `write` thì mọi sensor vẫn chạy nhưng
-công tắc báo lỗi.
-
-### 1.3 Tạo rule chặn cho từng thiết bị
+#### 1.3 Tạo rule chặn cho từng thiết bị
 
 Với mỗi thiết bị cần điều khiển: thêm 1 rule `forward` **drop** khớp với thiết bị, comment bắt
 đầu bằng tiền tố chặn, để ở trạng thái **disabled** (= chưa chặn). Nên đặt DHCP lease tĩnh để
@@ -103,15 +113,17 @@ IP thiết bị không đổi.
 Lưu ý:
 
 - Rule phải nằm **trên** mọi rule cho phép traffic của thiết bị (vd rule cuối "accept LAN →
-  WAN"). Có thể kéo thả trong WinBox cho đúng vị trí.
+  WAN"). Có thể kéo thả trong WinBox cho đúng vị trí. Để rule nằm dưới
+  `accept established,related` / `fasttrack` vẫn được: khi chặn, integration cắt luôn các kết
+  nối đang mở của thiết bị (xem [Cách hoạt động](#cách-hoạt-động)).
 - Rule có thể khớp theo bất cứ gì RouterOS hỗ trợ (`src-mac-address`, `src-address-list`,
   `in-interface`…). Riêng việc cắt kết nối đang mở chỉ chạy khi `src-address` là một IP đơn.
 - Tên công tắc lấy từ phần comment sau tiền tố (`Tivi phong khach`). Đổi comment sẽ sinh công
   tắc mới; công tắc cũ thành unavailable (xem [Giới hạn](#giới-hạn)).
 
-## 2. Cài đặt
+### 2. Cài integration
 
-### HACS (khuyên dùng)
+#### HACS (khuyên dùng)
 
 [![Mở Home Assistant và mở repo này trong HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ngoviet&repository=routeros_ha&category=integration)
 
@@ -124,7 +136,7 @@ Bấm nút trên, hoặc thêm bằng tay:
 
 Từ đó HACS sẽ báo khi có bản phát hành mới.
 
-### Thủ công
+#### Thủ công
 
 1. Tải `routeros_ha` từ [bản phát hành mới nhất](https://github.com/ngoviet/routeros_ha/releases/latest)
    (hoặc clone repo).
@@ -132,7 +144,13 @@ Từ đó HACS sẽ báo khi có bản phát hành mới.
    trên máy chạy Home Assistant.
 3. **Khởi động lại Home Assistant.**
 
-## 3. Thêm integration
+### Gỡ bỏ
+
+1. **Cài đặt → Thiết bị & Dịch vụ → RouterOS (MikroTik) → ⋮ → Xoá**.
+2. Gỡ repo trong HACS (hoặc xoá `custom_components/routeros_ha`), khởi động lại.
+3. Tuỳ ý xoá user và group `ha` trên router. Các rule chặn vẫn giữ nguyên.
+
+## Cấu hình
 
 [![Mở Home Assistant và bắt đầu thêm RouterOS (MikroTik).](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=routeros_ha)
 
@@ -162,7 +180,7 @@ thành nhiều mục riêng.
 
 Đổi tuỳ chọn là integration tự nạp lại, không cần khởi động lại.
 
-## Entity
+## Thực thể
 
 Mọi entity thuộc một thiết bị mang tên identity của router (`/system/identity`).
 
@@ -199,7 +217,7 @@ tên đó (máy có VM phía sau vẫn ra đúng máy), cổng chỉ có một M
 Switch không chạy DHCP server dùng lease của các router khác đã thêm vào integration. Thiết bị
 im lặng, rời bảng MAC thì tên vẫn giữ thêm một giờ.
 
-## Cơ chế chặn
+## Cách hoạt động
 
 Bật công tắc → rule thành `disabled=no`; tắt → `disabled=yes`. Trạng thái mới hiện ngay trên
 Home Assistant và được xác nhận ở lần poll sau. Rule bật/tắt trực tiếp trên router (WinBox,
@@ -211,7 +229,7 @@ chọn *Cắt luôn các kết nối đang mở khi chặn*, integration xoá th
 `/ip/firewall/connection` có nguồn là IP thiết bị nên chặn có hiệu lực ngay. Bỏ chặn không đụng
 gì tới connection.
 
-## Ví dụ
+## Cách dùng
 
 ### Chặn thiết bị của trẻ con giờ đi ngủ
 
@@ -276,7 +294,7 @@ logger:
 Khi mở issue, đính kèm file diagnostics (trang thiết bị → **⋮ → Tải xuống chẩn đoán**); mật
 khẩu, tên đăng nhập và serial đã được che.
 
-## Giới hạn
+### Giới hạn
 
 - Rule chặn là **IPv4** (`/ip/firewall/filter`). Nếu LAN có Internet IPv6, thiết bị bị chặn
   vẫn có thể ra ngoài bằng IPv6 — tự thêm rule tương ứng ở `/ipv6/firewall/filter` hoặc tắt
@@ -285,12 +303,6 @@ khẩu, tên đăng nhập và serial đã được che.
 - Rule bị xoá trên router để lại một công tắc unavailable; nạp lại integration rồi xoá entity.
 - Khi chặn, integration đọc toàn bộ bảng connection; router có rất nhiều kết nối thì có thể
   mất vài giây.
-
-## Gỡ bỏ
-
-1. **Cài đặt → Thiết bị & Dịch vụ → RouterOS (MikroTik) → ⋮ → Xoá**.
-2. Gỡ repo trong HACS (hoặc xoá `custom_components/routeros_ha`), khởi động lại.
-3. Tuỳ ý xoá user và group `ha` trên router. Các rule chặn vẫn giữ nguyên.
 
 ## Phát triển
 
@@ -324,9 +336,10 @@ khẩu, tên đăng nhập và serial đã được che.
   <img src="https://raw.githubusercontent.com/ngoviet/.github/main/assets/support/vietqr-card.svg" width="300" alt="VietQR — MB Bank — NGO DUC VIET — 911051212">
 </p>
 
-<p align="center"><sub>🇻🇳 VietQR: quét bằng app ngân hàng bất kỳ, nội dung <code>Ung ho routeros_ha</code>. Cảm ơn bạn! · Thank you for keeping this project alive.</sub></p>
+<p align="center"><sub>🇻🇳 VietQR: quét bằng app ngân hàng bất kỳ, nội dung <code>Ung ho routeros_ha</code>. Cảm ơn bạn đã giúp dự án tiếp tục phát triển!</sub></p>
+<p align="center"><sub>Tiền mã hoá (mạng BEP20): <code>0x57f07d44fb581cddc028a0c67d63a8cc05aa6caa</code> · USDT · USDC · BNB · ETH · BTC</sub></p>
 <!-- support:end -->
 
 ## Giấy phép
 
-[MIT](LICENSE)
+[MIT](LICENSE) © Ngô Đức Việt. Không liên kết với MikroTik.
