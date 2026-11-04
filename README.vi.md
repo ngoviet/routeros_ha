@@ -2,7 +2,7 @@
 
 <!-- readme-axi type=ha -->
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
+[![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://hacs.xyz/)
 [![GitHub release](https://img.shields.io/github/v/release/ngoviet/routeros_ha)](https://github.com/ngoviet/routeros_ha/releases)
 [![Validate](https://github.com/ngoviet/routeros_ha/actions/workflows/validate.yml/badge.svg)](https://github.com/ngoviet/routeros_ha/actions/workflows/validate.yml)
 [![Test](https://github.com/ngoviet/routeros_ha/actions/workflows/test.yml/badge.svg)](https://github.com/ngoviet/routeros_ha/actions/workflows/test.yml)
@@ -127,14 +127,17 @@ Lưu ý:
 
 [![Mở Home Assistant và mở repo này trong HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ngoviet&repository=routeros_ha&category=integration)
 
-Bấm nút trên, hoặc thêm bằng tay:
+RouterOS (MikroTik) đã có trong kho mặc định của HACS. Bấm nút trên, hoặc:
 
-1. Mở **HACS** → menu **⋮** → **Custom repositories**.
-2. Repository `https://github.com/ngoviet/routeros_ha`, loại **Integration** → **Add**.
-3. Tìm **RouterOS (MikroTik)** trong HACS → **Download**.
-4. **Khởi động lại Home Assistant.**
+1. Mở **HACS** và tìm **RouterOS (MikroTik)**.
+2. Mở mục đó → **Download**.
+3. **Khởi động lại Home Assistant.**
 
 Từ đó HACS sẽ báo khi có bản phát hành mới.
+
+> Nếu chưa tìm thấy, thêm theo dạng custom repository: HACS → menu **⋮** →
+> **Custom repositories** → `https://github.com/ngoviet/routeros_ha`, loại
+> **Integration** → **Add**, rồi làm tiếp từ bước 1.
 
 #### Thủ công
 
