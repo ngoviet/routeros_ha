@@ -2,7 +2,7 @@
 
 <!-- readme-axi type=ha -->
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
+[![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://hacs.xyz/)
 [![GitHub release](https://img.shields.io/github/v/release/ngoviet/routeros_ha)](https://github.com/ngoviet/routeros_ha/releases)
 [![Validate](https://github.com/ngoviet/routeros_ha/actions/workflows/validate.yml/badge.svg)](https://github.com/ngoviet/routeros_ha/actions/workflows/validate.yml)
 [![Test](https://github.com/ngoviet/routeros_ha/actions/workflows/test.yml/badge.svg)](https://github.com/ngoviet/routeros_ha/actions/workflows/test.yml)
@@ -130,14 +130,17 @@ Notes:
 
 [![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ngoviet&repository=routeros_ha&category=integration)
 
-Click the button above, or add it by hand:
+RouterOS (MikroTik) is in the default HACS store. Click the button above, or:
 
-1. Open **HACS** → menu **⋮** → **Custom repositories**.
-2. Repository `https://github.com/ngoviet/routeros_ha`, type **Integration** → **Add**.
-3. Search for **RouterOS (MikroTik)** in HACS → **Download**.
-4. **Restart Home Assistant.**
+1. Open **HACS** and search for **RouterOS (MikroTik)**.
+2. Open it → **Download**.
+3. **Restart Home Assistant.**
 
 HACS will notify you about new releases from then on.
+
+> If it does not show up in the search yet, add it as a custom repository: HACS → menu
+> **⋮** → **Custom repositories** → `https://github.com/ngoviet/routeros_ha`, type
+> **Integration** → **Add**, then continue from step 1.
 
 #### Manual
 
