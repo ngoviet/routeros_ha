@@ -44,7 +44,8 @@ with a switch; on top of that you get router health sensors and update notificat
   [lan-topo-card](https://github.com/ngoviet/lan-topo-card).
 - **Update notifications** — RouterOS and RouterBOARD firmware (read-only, never installs).
 - **No extra dependencies** — talks to the router with Home Assistant's own `aiohttp`.
-- UI setup (config flow), re-authentication, options, diagnostics, English and Vietnamese UI.
+- UI setup (config flow), re-authentication, reconfigure, options, diagnostics, English and
+  Vietnamese UI.
 
 ## Requirements
 
@@ -172,6 +173,10 @@ Or go to **Settings → Devices & services → Add integration → RouterOS (Mik
 
 Each router is added once (identified by its serial number / software ID). Several routers
 can be added as separate entries.
+
+To change the host, port or HTTPS settings later (e.g. after the router's LAN IP changed), use
+**Settings → Devices & services → RouterOS (MikroTik) → ⋮ → Reconfigure**. Username, password,
+options and entities are kept; the new address must answer as the same router.
 
 ### Options
 
