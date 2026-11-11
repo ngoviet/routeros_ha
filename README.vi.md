@@ -44,8 +44,8 @@ các sensor sức khoẻ router và thông báo có bản cập nhật.
   [lan-topo-card](https://github.com/ngoviet/lan-topo-card).
 - **Thông báo cập nhật** — RouterOS và firmware RouterBOARD (chỉ đọc, không bao giờ tự cài).
 - **Không thư viện ngoài** — dùng `aiohttp` có sẵn của Home Assistant.
-- Cài đặt bằng giao diện (config flow), đăng nhập lại, tuỳ chọn, diagnostics, giao diện tiếng
-  Anh và tiếng Việt.
+- Cài đặt bằng giao diện (config flow), đăng nhập lại, cấu hình lại, tuỳ chọn, diagnostics,
+  giao diện tiếng Anh và tiếng Việt.
 
 ## Yêu cầu
 
@@ -169,6 +169,10 @@ Hoặc vào **Cài đặt → Thiết bị & Dịch vụ → Thêm tích hợp �
 
 Mỗi router chỉ thêm được một lần (nhận diện bằng serial / software ID). Nhiều router thì thêm
 thành nhiều mục riêng.
+
+Muốn đổi địa chỉ, cổng hay HTTPS về sau (vd khi IP LAN của router đổi), vào
+**Cài đặt → Thiết bị & Dịch vụ → RouterOS (MikroTik) → ⋮ → Cấu hình lại**. Tên đăng nhập, mật
+khẩu, tuỳ chọn và entity được giữ nguyên; địa chỉ mới phải trả lời đúng là router cũ.
 
 ### Tuỳ chọn
 

@@ -1,4 +1,4 @@
-"""Config flow (host + user RouterOS) + reauth + options."""
+"""Config flow (host + user RouterOS) + reconfigure (đổi host) + reauth + options."""
 
 from __future__ import annotations
 
@@ -91,6 +91,17 @@ USER_SCHEMA = vol.Schema(
     }
 )
 
+RECONFIGURE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_HOST): str,
+        vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=65535)
+        ),
+        vol.Required(CONF_SSL, default=False): bool,
+        vol.Required(CONF_VERIFY_SSL, default=False): bool,
+    }
+)
+
 
 class RouterOSConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -113,6 +124,32 @@ class RouterOSConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(USER_SCHEMA, user_input),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Đổi host / cổng / SSL (vd router đổi IP LAN) — giữ user, mật khẩu và mọi entity."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            user_input[CONF_HOST] = normalize_host(user_input[CONF_HOST])
+            error, info = await _validate(self.hass, {**entry.data, **user_input})
+            if error is None:
+                # Cùng một router mới cho đổi: host mới phải trả đúng serial / software-id cũ.
+                if info["uid"]:
+                    await self.async_set_unique_id(str(info["uid"]))
+                    self._abort_if_unique_id_mismatch(reason="wrong_router")
+                return self.async_update_reload_and_abort(
+                    entry, data_updates=user_input
+                )
+            errors["base"] = error
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                RECONFIGURE_SCHEMA, user_input or entry.data
+            ),
             errors=errors,
         )
 

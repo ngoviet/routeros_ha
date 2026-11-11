@@ -13,6 +13,16 @@
           "password": "Mật khẩu"
         }
       },
+      "reconfigure": {
+        "title": "Đổi địa chỉ router",
+        "description": "Đổi host, cổng hoặc HTTPS (vd sau khi IP LAN của router đổi). Giữ nguyên user, mật khẩu và mọi entity. Địa chỉ mới phải trả lời là đúng router cũ.",
+        "data": {
+          "host": "Host",
+          "port": "Cổng",
+          "ssl": "Dùng HTTPS",
+          "verify_ssl": "Kiểm chứng chỉ SSL"
+        }
+      },
       "reauth_confirm": {
         "title": "Đăng nhập lại RouterOS",
         "description": "Router {host} không còn chấp nhận thông tin đăng nhập.",
@@ -29,7 +39,9 @@
     },
     "abort": {
       "already_configured": "Router này đã được thêm",
-      "reauth_successful": "Đăng nhập lại thành công"
+      "reauth_successful": "Đăng nhập lại thành công",
+      "reconfigure_successful": "Đã cập nhật địa chỉ router",
+      "wrong_router": "Địa chỉ này là một router khác"
     }
   },
   "options": {

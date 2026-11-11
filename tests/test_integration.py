@@ -424,6 +424,66 @@ async def test_reauth_updates_password(hass: HomeAssistant, router):
     assert entry.data["password"] == "new"
 
 
+def _entry_at(host: str) -> MockConfigEntry:
+    """Entry cũ đang trỏ một host khác (router vừa đổi IP LAN)."""
+    return MockConfigEntry(
+        domain=DOMAIN, title="CCR2004", unique_id=SERIAL,
+        data={**USER_INPUT, "host": host},
+    )
+
+
+async def test_reconfigure_changes_host_keeps_credentials(hass: HomeAssistant, router):
+    entry = _entry_at("10.0.0.1")
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"host": f"http://{HOST}/", "port": 80, "ssl": False, "verify_ssl": False},
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data["host"] == HOST
+    assert entry.data["username"] == USER_INPUT["username"]
+    assert entry.data["password"] == USER_INPUT["password"]
+    assert entry.unique_id == SERIAL
+
+
+async def test_reconfigure_rejects_other_router(hass: HomeAssistant, aioclient_mock):
+    mock_router(
+        aioclient_mock,
+        {("get", "system/routerboard"): {"json": {"routerboard": "true", "serial-number": "KHAC000"}}},
+    )
+    entry = _entry_at("10.0.0.1")
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"host": HOST, "port": 80, "ssl": False, "verify_ssl": False}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "wrong_router"
+    assert entry.data["host"] == "10.0.0.1"
+
+
+async def test_reconfigure_cannot_connect_shows_error(hass: HomeAssistant, aioclient_mock):
+    aioclient_mock.get(
+        REST + "system/identity",
+        status=500,
+        json={"error": 500, "message": "Internal Server Error"},
+    )
+    entry = _entry_at("10.0.0.1")
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"host": HOST, "port": 80, "ssl": False, "verify_ssl": False}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+    assert entry.data["host"] == "10.0.0.1"
+
+
 # --- cổng ethernet ---------------------------------------------------------
 
 

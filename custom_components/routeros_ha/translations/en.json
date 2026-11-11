@@ -13,6 +13,16 @@
           "password": "Password"
         }
       },
+      "reconfigure": {
+        "title": "Change router address",
+        "description": "Change the host, port or HTTPS setting (for example after the router's LAN IP changed). Username, password and all entities are kept. The new address must answer as the same router.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      },
       "reauth_confirm": {
         "title": "Re-authenticate RouterOS",
         "description": "The credentials for {host} are no longer accepted.",
@@ -29,7 +39,9 @@
     },
     "abort": {
       "already_configured": "Router already configured",
-      "reauth_successful": "Re-authentication successful"
+      "reauth_successful": "Re-authentication successful",
+      "reconfigure_successful": "Router address updated",
+      "wrong_router": "That address answers as a different router"
     }
   },
   "options": {
