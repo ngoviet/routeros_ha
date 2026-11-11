@@ -6,7 +6,7 @@ Chạy SAU KHI đã xoá config entry `mikrotik_router` (để các id cũ đư�
     python tools/migrate_entity_ids.py           # chạy thử: chỉ in kế hoạch
     python tools/migrate_entity_ids.py --apply   # đổi thật
 
-Cần `.env` có HA_URL (vd http://192.168.10.15:8123) và HA_TOKEN (long-lived token).
+Cần `.env` có HA_URL (vd http://192.168.12.20:8123) và HA_TOKEN (long-lived token).
 """
 
 from __future__ import annotations
